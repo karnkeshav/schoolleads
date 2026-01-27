@@ -1,5 +1,5 @@
 import streamlit as st
-from googlesearch import search
+from serpapi import GoogleSearch
 import pandas as pd
 import time
 import random
@@ -29,38 +29,50 @@ def construct_query(platform, city, keywords="admissions"):
 
 def fetch_results(query, num_results=10):
     """
-    Fetches results using googlesearch-python.
+    Fetches results using SerpApi.
     Returns a list of dictionaries.
     """
     results_data = []
+
+    # Retrieve API Key from secrets or input
+    api_key = None
+    if "SERPAPI_KEY" in st.secrets:
+        api_key = st.secrets["SERPAPI_KEY"]
+    else:
+        # Fallback for development/first run without secrets
+        # In a real app, we might ask the user to input it
+        # For now, we will warn if missing
+        pass
+
+    if not api_key:
+        st.error("⚠️ SERPAPI_KEY not found in secrets. Please configure it in .streamlit/secrets.toml.")
+        return []
+
+    params = {
+        "q": query,
+        "engine": "google",
+        "api_key": api_key,
+        "num": num_results
+    }
+
     try:
-        # sleep_interval might be supported, but we will also add manual sleep if needed.
-        # We try to use advanced=True to get Title and Description.
-        # Note: num_results in some versions is 'stop'.
+        search = GoogleSearch(params)
+        results = search.get_dict()
 
-        # We use a generator to fetch results
-        # To be safe with potential API variations, we'll try-except the advanced param?
-        # No, let's assume standard googlesearch-python.
+        # Check for error in response
+        if "error" in results:
+             st.error(f"SerpApi Error: {results['error']}")
+             return []
 
-        # "Pro-Tips": Increase Delay to 5 seconds to avoid blocks.
-        search_gen = search(query, num_results=num_results, advanced=True, sleep_interval=5)
-
-        for result in search_gen:
+        for result in results.get("organic_results", []):
             results_data.append({
-                "Title": result.title,
-                "URL": result.url,
-                "Description": result.description
+                "Title": result.get("title"),
+                "URL": result.get("link"),
+                "Description": result.get("snippet")
             })
-            # Adding a small delay to be safe, though sleep_interval should handle it.
-            time.sleep(random.uniform(1.0, 2.0))
 
     except Exception as e:
-        # Check if it's a 429 or related to rate limiting
-        error_msg = str(e)
-        if "429" in error_msg or "Too Many Requests" in error_msg:
-            st.error("⚠️ HTTP 429 Error: Too many requests. Google has rate-limited the search. Please wait a few minutes before trying again.")
-        else:
-            st.error(f"An error occurred: {error_msg}")
+        st.error(f"Error occurred during search: {e}")
 
     return results_data
 
@@ -71,6 +83,8 @@ if __name__ == "__main__":
     st.markdown("""
     Use **Google X-Ray Search** to find school leads in Tier 3 Indian cities.
     This tool targets platforms like **LinkedIn**, **Facebook**, and **Instagram** to find Principals and Directors.
+
+    **Note:** This tool requires a valid SerpApi Key.
     """)
 
     st.sidebar.header("Search Configuration")
@@ -103,4 +117,4 @@ if __name__ == "__main__":
                     mime="text/csv",
                 )
             else:
-                st.warning("No results found. Try adjusting keywords or check if Google is blocking requests.")
+                st.warning("No results found or search failed.")

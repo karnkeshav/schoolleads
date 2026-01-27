@@ -2,10 +2,13 @@
 
 This is a Streamlit application that uses Google X-Ray Search ("Dorks") to find school leads (Principals, Directors) in Tier 3 Indian cities from platforms like LinkedIn, Facebook, and Instagram.
 
+It uses **SerpApi** to perform Google searches reliably.
+
 ## Prerequisites
 
 - Python 3.7+
-- Internet connection (access to Google)
+- Internet connection
+- A **SerpApi** API Key (Get one at [serpapi.com](https://serpapi.com/))
 
 ## Installation
 
@@ -15,6 +18,24 @@ This is a Streamlit application that uses Google X-Ray Search ("Dorks") to find 
     ```bash
     pip install -r requirements.txt
     ```
+
+## Configuration
+
+You must configure your SerpApi Key for the application to work.
+
+1.  Create a file named `secrets.toml` inside a `.streamlit` folder in the project root:
+
+    ```
+    .streamlit/secrets.toml
+    ```
+
+2.  Add your API key to the file:
+
+    ```toml
+    SERPAPI_KEY = "your_actual_serpapi_key_here"
+    ```
+
+    *Note: Do not commit `secrets.toml` to version control.*
 
 ## Usage
 
@@ -29,11 +50,11 @@ This is a Streamlit application that uses Google X-Ray Search ("Dorks") to find 
     *   **Platform**: Select LinkedIn, Facebook, or Instagram.
     *   **City**: Select a Tier 3 city from the list.
     *   **Keywords**: Enter additional keywords (default: "admissions").
-    *   **Number of Results**: Choose how many results to fetch (be careful with high numbers to avoid Google blocks).
+    *   **Number of Results**: Choose how many results to fetch.
 4.  Click **Search Leads**.
 5.  View the results in the table and download them as a CSV file using the **Download Results as CSV** button.
 
 ## Notes
 
-*   **Rate Limiting**: Google may block your IP if you make too many requests in a short period (HTTP 429). If this happens, wait a few minutes or switch your internet connection/IP.
-*   **Results**: The quality of results depends on the data indexed by Google.
+*   **Quota**: Usage depends on your SerpApi plan quota.
+*   **Results**: The tool fetches organic results from Google based on the constructed Dork query.
