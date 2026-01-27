@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 TIER_3_CITIES = [
     "Udaipur", "Jhansi", "Madurai", "Aligarh", "Guntur",
-    "Warangal", "Tirunelveli", "Nellore", "Rajahmundry", "Kurnool",
+    "Warangal", "Tirunelveli", "Nellore", "madhubani", "darbhanga" "Rajahmundry", "Kurnool",
     "Bikaner", "Amravati"
 ]
 
@@ -73,7 +73,7 @@ def search():
     platform = data.get('platform')
     city = data.get('city')
     keywords = data.get('keywords', 'admissions')
-    num_results = int(data.get('num_results', 10))
+    num_results = int(data.get('num_results', 100))
 
     if not platform or not city:
         return jsonify({"error": "Platform and City are required."}), 400
