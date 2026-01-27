@@ -1,37 +1,27 @@
 import os
 from flask import Flask, render_template, request, jsonify
 from serpapi import GoogleSearch
-import pandas as pd
 
 app = Flask(__name__)
 
 TIER_3_CITIES = [
     "Udaipur", "Jhansi", "Madurai", "Aligarh", "Guntur",
-    "Warangal", "Tirunelveli", "Nellore", "madhubani", "darbhanga" "Rajahmundry", "Kurnool",
+    "Warangal", "Tirunelveli", "Nellore", "Rajahmundry", "Kurnool", "Darbhanga", "Madhubani",
     "Bikaner", "Amravati"
 ]
 
 def construct_query(platform, city, keywords="admissions"):
-    """
-    Constructs a Google Dork query based on the platform and city.
-    """
     base_query = '("Principal" OR "Director") "{}" "{}"'.format(city, keywords)
-
     if platform == "LinkedIn":
         return f'site:linkedin.com/in {base_query}'
     elif platform == "Facebook":
         return f'site:facebook.com {base_query}'
     elif platform == "Instagram":
         return f'site:instagram.com {base_query}'
-    else:
-        return f'{base_query}'
+    return base_query
 
-def fetch_results(query, num_results=10):
-    """
-    Fetches results using SerpApi.
-    """
+def fetch_results(query, num_results=100):
     results_data = []
-
     api_key = os.environ.get('SERPAPI_KEY')
 
     if not api_key:
@@ -41,13 +31,12 @@ def fetch_results(query, num_results=10):
         "q": query,
         "engine": "google",
         "api_key": api_key,
-        "num": num_results
+        "num": num_results # SerpApi allows up to 100 per credit
     }
 
     try:
         search = GoogleSearch(params)
         results = search.get_dict()
-
         if "error" in results:
              return {"error": f"SerpApi Error: {results['error']}"}
 
@@ -57,9 +46,8 @@ def fetch_results(query, num_results=10):
                 "URL": result.get("link"),
                 "Description": result.get("snippet")
             })
-
     except Exception as e:
-        return {"error": f"Error occurred during search: {str(e)}"}
+        return {"error": str(e)}
 
     return results_data
 
@@ -73,6 +61,7 @@ def search():
     platform = data.get('platform')
     city = data.get('city')
     keywords = data.get('keywords', 'admissions')
+    # Capture num_results from the frontend, default to 100
     num_results = int(data.get('num_results', 100))
 
     if not platform or not city:
@@ -85,6 +74,3 @@ def search():
         return jsonify(results), 500
 
     return jsonify({"results": results})
-
-if __name__ == "__main__":
-    app.run(debug=True)
