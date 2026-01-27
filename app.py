@@ -1,8 +1,9 @@
-import streamlit as st
+import os
+from flask import Flask, render_template, request, jsonify
 from serpapi import GoogleSearch
 import pandas as pd
-import time
-import random
+
+app = Flask(__name__)
 
 TIER_3_CITIES = [
     "Udaipur", "Jhansi", "Madurai", "Aligarh", "Guntur",
@@ -14,11 +15,9 @@ def construct_query(platform, city, keywords="admissions"):
     """
     Constructs a Google Dork query based on the platform and city.
     """
-    # Base query part: ("Principal" OR "Director") "{City}" "{keywords}"
     base_query = '("Principal" OR "Director") "{}" "{}"'.format(city, keywords)
 
     if platform == "LinkedIn":
-        # site:linkedin.com/in ("Principal" OR "Director") "Udaipur" "admissions"
         return f'site:linkedin.com/in {base_query}'
     elif platform == "Facebook":
         return f'site:facebook.com {base_query}'
@@ -30,23 +29,13 @@ def construct_query(platform, city, keywords="admissions"):
 def fetch_results(query, num_results=10):
     """
     Fetches results using SerpApi.
-    Returns a list of dictionaries.
     """
     results_data = []
 
-    # Retrieve API Key from secrets or input
-    api_key = None
-    if "SERPAPI_KEY" in st.secrets:
-        api_key = st.secrets["SERPAPI_KEY"]
-    else:
-        # Fallback for development/first run without secrets
-        # In a real app, we might ask the user to input it
-        # For now, we will warn if missing
-        pass
+    api_key = os.environ.get('SERPAPI_KEY')
 
     if not api_key:
-        st.error("⚠️ SERPAPI_KEY not found in secrets. Please configure it in .streamlit/secrets.toml.")
-        return []
+        return {"error": "SERPAPI_KEY not found in environment variables."}
 
     params = {
         "q": query,
@@ -59,10 +48,8 @@ def fetch_results(query, num_results=10):
         search = GoogleSearch(params)
         results = search.get_dict()
 
-        # Check for error in response
         if "error" in results:
-             st.error(f"SerpApi Error: {results['error']}")
-             return []
+             return {"error": f"SerpApi Error: {results['error']}"}
 
         for result in results.get("organic_results", []):
             results_data.append({
@@ -72,49 +59,32 @@ def fetch_results(query, num_results=10):
             })
 
     except Exception as e:
-        st.error(f"Error occurred during search: {e}")
+        return {"error": f"Error occurred during search: {str(e)}"}
 
     return results_data
 
+@app.route('/')
+def index():
+    return render_template('index.html', cities=TIER_3_CITIES)
+
+@app.route('/search', methods=['POST'])
+def search():
+    data = request.json
+    platform = data.get('platform')
+    city = data.get('city')
+    keywords = data.get('keywords', 'admissions')
+    num_results = int(data.get('num_results', 10))
+
+    if not platform or not city:
+        return jsonify({"error": "Platform and City are required."}), 400
+
+    query = construct_query(platform, city, keywords)
+    results = fetch_results(query, num_results)
+
+    if isinstance(results, dict) and "error" in results:
+        return jsonify(results), 500
+
+    return jsonify({"results": results})
+
 if __name__ == "__main__":
-    st.set_page_config(page_title="School Lead Gen - X-Ray Search", page_icon="🏫", layout="wide")
-
-    st.title("🏫 School Lead Generation Tool")
-    st.markdown("""
-    Use **Google X-Ray Search** to find school leads in Tier 3 Indian cities.
-    This tool targets platforms like **LinkedIn**, **Facebook**, and **Instagram** to find Principals and Directors.
-
-    **Note:** This tool requires a valid SerpApi Key.
-    """)
-
-    st.sidebar.header("Search Configuration")
-
-    platform = st.sidebar.selectbox("Select Platform", ["LinkedIn", "Facebook", "Instagram"])
-    city = st.sidebar.selectbox("Select City", TIER_3_CITIES)
-    keywords = st.sidebar.text_input("Keywords", value="admissions")
-    num_results = st.sidebar.slider("Number of Results", min_value=5, max_value=20, value=10, step=1)
-
-    if st.sidebar.button("Search Leads"):
-        with st.spinner(f"Searching for {platform} profiles in {city}..."):
-            # Construct Query
-            dork_query = construct_query(platform, city, keywords)
-            st.info(f"**Executing Query:** `{dork_query}`")
-
-            # Fetch Results
-            results = fetch_results(dork_query, num_results=num_results)
-
-            if results:
-                df = pd.DataFrame(results)
-                st.success(f"Found {len(df)} results!")
-                st.dataframe(df, use_container_width=True)
-
-                # CSV Download
-                csv = df.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="Download Results as CSV",
-                    data=csv,
-                    file_name="leads_ready4exam.csv",
-                    mime="text/csv",
-                )
-            else:
-                st.warning("No results found or search failed.")
+    app.run(debug=True)
